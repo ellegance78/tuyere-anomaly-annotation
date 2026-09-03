@@ -1,0 +1,973 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tuyere Vision — Video Annotation Tool</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    /* =========================================================
+       CSS Custom Properties — Design Tokens
+    ========================================================= */
+    :root {
+      --bg-base:       #0a0c10;
+      --bg-surface:    #111318;
+      --bg-card:       #161a22;
+      --bg-card-hover: #1c2130;
+
+      --border:        rgba(255,255,255,0.07);
+      --border-glow:   rgba(99,179,237,0.3);
+
+      --text-primary:  #e8eaf0;
+      --text-secondary:#8891a4;
+      --text-muted:    #4a5568;
+
+      --accent-blue:   #4a9eff;
+      --accent-cyan:   #00d4ff;
+      --accent-green:  #22c55e;
+      --accent-green2: #16a34a;
+      --accent-red:    #ef4444;
+      --accent-red2:   #b91c1c;
+      --accent-amber:  #f59e0b;
+
+      --normal-from:   #166534;
+      --normal-to:     #15803d;
+      --normal-glow:   rgba(34,197,94,0.25);
+
+      --anomaly-from:  #7f1d1d;
+      --anomaly-to:    #991b1b;
+      --anomaly-glow:  rgba(239,68,68,0.25);
+
+      --skip-from:     #78350f;
+      --skip-to:       #92400e;
+      --skip-glow:     rgba(245,158,11,0.25);
+
+      --radius-sm: 8px;
+      --radius-md: 14px;
+      --radius-lg: 20px;
+
+      --shadow-sm: 0 2px 8px rgba(0,0,0,0.4);
+      --shadow-md: 0 8px 32px rgba(0,0,0,0.5);
+      --shadow-lg: 0 24px 64px rgba(0,0,0,0.6);
+
+      --transition-fast: 140ms cubic-bezier(0.4,0,0.2,1);
+      --transition-med:  240ms cubic-bezier(0.4,0,0.2,1);
+      --transition-slow: 400ms cubic-bezier(0.4,0,0.2,1);
+    }
+
+    /* =========================================================
+       Reset & Base
+    ========================================================= */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg-base);
+      color: var(--text-primary);
+      overflow-x: hidden;
+    }
+
+    /* Animated grid background */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(74,158,255,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(74,158,255,0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* =========================================================
+       Layout
+    ========================================================= */
+    #app {
+      position: relative;
+      z-index: 1;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px 24px 40px;
+      gap: 20px;
+    }
+
+    /* =========================================================
+       Header
+    ========================================================= */
+    header {
+      width: 100%;
+      max-width: 1100px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 20px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      backdrop-filter: blur(12px);
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo-icon {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, var(--accent-blue), var(--accent-cyan));
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      flex-shrink: 0;
+      box-shadow: 0 0 16px rgba(74,158,255,0.4);
+    }
+
+    .logo-text {
+      font-size: 17px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+      background: linear-gradient(135deg, #fff 30%, var(--accent-cyan));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .logo-sub {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-weight: 400;
+      margin-top: 1px;
+    }
+
+    /* Progress bar area */
+    .progress-area {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .progress-label {
+      font-size: 12px;
+      color: var(--text-secondary);
+      white-space: nowrap;
+    }
+
+    .progress-track {
+      width: 180px;
+      height: 6px;
+      background: rgba(255,255,255,0.08);
+      border-radius: 99px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent-blue), var(--accent-cyan));
+      border-radius: 99px;
+      transition: width var(--transition-med);
+      box-shadow: 0 0 8px var(--accent-blue);
+    }
+
+    .progress-count {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--accent-cyan);
+      white-space: nowrap;
+      min-width: 80px;
+      text-align: right;
+    }
+
+    /* =========================================================
+       Camera Badge
+    ========================================================= */
+    .camera-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 16px;
+      background: rgba(74,158,255,0.1);
+      border: 1px solid rgba(74,158,255,0.25);
+      border-radius: 99px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--accent-cyan);
+      letter-spacing: 0.2px;
+      transition: all var(--transition-fast);
+    }
+
+    .camera-badge .dot {
+      width: 7px;
+      height: 7px;
+      background: var(--accent-cyan);
+      border-radius: 50%;
+      box-shadow: 0 0 8px var(--accent-cyan);
+      animation: pulse-dot 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%       { opacity: 0.5; transform: scale(0.7); }
+    }
+
+    /* =========================================================
+       Video Card
+    ========================================================= */
+    .video-card {
+      width: 100%;
+      max-width: 1100px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      box-shadow: var(--shadow-lg);
+      position: relative;
+      transition: border-color var(--transition-med);
+    }
+
+    .video-card.state-normal  { border-color: rgba(34,197,94,0.5);  box-shadow: var(--shadow-lg), 0 0 40px rgba(34,197,94,0.12); }
+    .video-card.state-anomaly { border-color: rgba(239,68,68,0.5);  box-shadow: var(--shadow-lg), 0 0 40px rgba(239,68,68,0.12); }
+    .video-card.state-skip    { border-color: rgba(245,158,11,0.5); box-shadow: var(--shadow-lg), 0 0 40px rgba(245,158,11,0.12); }
+
+    .video-card video {
+      width: 100%;
+      display: block;
+      aspect-ratio: 16/9;
+      background: #000;
+      object-fit: contain;
+    }
+
+    /* Corner decorations */
+    .video-card::before,
+    .video-card::after {
+      content: '';
+      position: absolute;
+      width: 20px;
+      height: 20px;
+      border-color: var(--accent-blue);
+      border-style: solid;
+      opacity: 0.4;
+      z-index: 2;
+      pointer-events: none;
+    }
+    .video-card::before { top: 10px; left: 10px;  border-width: 2px 0 0 2px; border-radius: 4px 0 0 0; }
+    .video-card::after  { top: 10px; right: 10px; border-width: 2px 2px 0 0; border-radius: 0 4px 0 0; }
+
+    /* Video filename overlay */
+    .video-overlay {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 28px 20px 14px;
+      background: linear-gradient(transparent, rgba(0,0,0,0.75));
+      font-size: 12px;
+      color: rgba(255,255,255,0.6);
+      font-weight: 500;
+      letter-spacing: 0.3px;
+      z-index: 2;
+      pointer-events: none;
+    }
+
+    /* =========================================================
+       Empty State
+    ========================================================= */
+    .empty-state {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      padding: 80px 40px;
+      text-align: center;
+    }
+
+    .empty-state.visible { display: flex; }
+
+    .empty-icon {
+      font-size: 64px;
+      filter: grayscale(0.3);
+    }
+
+    .empty-title {
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .empty-sub {
+      font-size: 15px;
+      color: var(--text-secondary);
+      max-width: 360px;
+      line-height: 1.6;
+    }
+
+    /* =========================================================
+       Controls Panel
+    ========================================================= */
+    .controls-panel {
+      width: 100%;
+      max-width: 1100px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* Primary buttons row */
+    .primary-buttons {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 14px;
+      transition: all var(--transition-med);
+    }
+
+    @media (max-width: 700px) {
+      .primary-buttons { grid-template-columns: 1fr; }
+    }
+
+    .primary-buttons.hidden {
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(-6px);
+    }
+
+    .btn-primary {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      padding: 20px 32px;
+      border: none;
+      border-radius: var(--radius-md);
+      font-family: inherit;
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+      cursor: pointer;
+      overflow: hidden;
+      transition: all var(--transition-fast);
+    }
+
+    .btn-primary::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: rgba(255,255,255,0);
+      transition: background var(--transition-fast);
+    }
+
+    .btn-primary:hover::before { background: rgba(255,255,255,0.07); }
+    .btn-primary:active { transform: scale(0.97); }
+
+    .btn-normal {
+      background: linear-gradient(135deg, var(--normal-from), var(--normal-to));
+      color: #d1fae5;
+      box-shadow: 0 4px 24px var(--normal-glow), var(--shadow-sm);
+      border: 1px solid rgba(34,197,94,0.3);
+    }
+
+    .btn-normal:hover {
+      box-shadow: 0 8px 32px rgba(34,197,94,0.4), var(--shadow-md);
+      transform: translateY(-2px);
+    }
+
+    .btn-anomaly {
+      background: linear-gradient(135deg, var(--anomaly-from), var(--anomaly-to));
+      color: #fee2e2;
+      box-shadow: 0 4px 24px var(--anomaly-glow), var(--shadow-sm);
+      border: 1px solid rgba(239,68,68,0.3);
+    }
+
+    .btn-anomaly:hover {
+      box-shadow: 0 8px 32px rgba(239,68,68,0.4), var(--shadow-md);
+      transform: translateY(-2px);
+    }
+
+    .btn-skip {
+      background: linear-gradient(135deg, var(--skip-from), var(--skip-to));
+      color: #fef3c7;
+      box-shadow: 0 4px 24px var(--skip-glow), var(--shadow-sm);
+      border: 1px solid rgba(245,158,11,0.3);
+    }
+
+    .btn-skip:hover {
+      box-shadow: 0 8px 32px rgba(245,158,11,0.4), var(--shadow-md);
+      transform: translateY(-2px);
+    }
+
+    .btn-icon { font-size: 20px; }
+
+    .btn-meta {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 2px;
+    }
+
+    .btn-label { font-size: 16px; font-weight: 700; }
+
+    .btn-shortcut {
+      font-size: 11px;
+      opacity: 0.65;
+      font-weight: 500;
+    }
+
+    /* =========================================================
+       Keyboard Shortcuts Reference
+    ========================================================= */
+    .shortcuts-bar {
+      width: 100%;
+      max-width: 1100px;
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px 16px;
+      padding: 12px 16px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+    }
+
+    .shortcuts-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-right: 4px;
+    }
+
+    .shortcut-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    kbd {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 22px;
+      height: 22px;
+      padding: 0 5px;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 4px;
+      font-size: 11px;
+      font-family: inherit;
+      font-weight: 600;
+      color: var(--text-secondary);
+      box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+    }
+
+    .shortcut-desc {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    /* =========================================================
+       Stats Bar
+    ========================================================= */
+    .stats-bar {
+      width: 100%;
+      max-width: 1100px;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+
+    @media (max-width: 700px) {
+      .stats-bar { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    .stat-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 14px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .stat-label {
+      font-size: 11px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.7px;
+      font-weight: 600;
+    }
+
+    .stat-value {
+      font-size: 26px;
+      font-weight: 800;
+      letter-spacing: -1px;
+      line-height: 1;
+    }
+
+    .stat-value.green  { color: var(--accent-green); }
+    .stat-value.red    { color: var(--accent-red); }
+    .stat-value.blue   { color: var(--accent-blue); }
+    .stat-value.amber  { color: var(--accent-amber); }
+
+    /* =========================================================
+       Toast Notification
+    ========================================================= */
+    #toast {
+      position: fixed;
+      bottom: 32px;
+      right: 32px;
+      z-index: 9999;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 20px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-lg);
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-primary);
+      transform: translateY(80px);
+      opacity: 0;
+      transition: all var(--transition-med);
+      max-width: 340px;
+    }
+
+    #toast.visible {
+      transform: translateY(0);
+      opacity: 1;
+    }
+
+    #toast.success { border-color: rgba(34,197,94,0.4);  background: #0d2b1a; }
+    #toast.error   { border-color: rgba(239,68,68,0.4);  background: #2b0d0d; }
+    #toast.info    { border-color: rgba(74,158,255,0.4); background: #0d1a2b; }
+
+    .toast-icon { font-size: 18px; }
+
+    /* =========================================================
+       Loading Spinner
+    ========================================================= */
+    .spinner-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0,0,0,0.6);
+      backdrop-filter: blur(4px);
+      z-index: 10;
+      border-radius: var(--radius-lg);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity var(--transition-fast);
+    }
+
+    .spinner-overlay.visible {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid rgba(74,158,255,0.2);
+      border-top-color: var(--accent-blue);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+<div id="app">
+
+  <!-- ── Header ──────────────────────────────────────────────── -->
+  <header>
+    <div class="logo">
+      <div class="logo-icon">🔥</div>
+      <div>
+        <div class="logo-text">Tuyere Vision</div>
+        <div class="logo-sub">Blast Furnace Anomaly Annotator</div>
+      </div>
+    </div>
+
+    <div class="progress-area">
+      <span class="progress-label">Annotated</span>
+      <div class="progress-track">
+        <div class="progress-fill" id="progressFill" style="width:0%"></div>
+      </div>
+      <span class="progress-count" id="progressCount">Loading…</span>
+    </div>
+  </header>
+
+  <!-- ── Camera Badge ─────────────────────────────────────────── -->
+  <div id="cameraBadge" class="camera-badge">
+    <span class="dot"></span>
+    <span id="cameraLabel">Loading…</span>
+  </div>
+
+  <!-- ── Video Card ────────────────────────────────────────────── -->
+  <div class="video-card" id="videoCard">
+    <div class="spinner-overlay" id="spinnerOverlay">
+      <div class="spinner"></div>
+    </div>
+
+    <!-- Normal video player -->
+    <video
+      id="videoPlayer"
+      autoplay
+      loop
+      muted
+      playsinline
+      preload="auto"
+    ></video>
+
+    <!-- Empty / all-done state -->
+    <div class="empty-state" id="emptyState">
+      <div class="empty-icon">🎉</div>
+      <div class="empty-title">All Videos Annotated!</div>
+      <div class="empty-sub">
+        You've successfully processed all clips in the dataset.
+        Check the <strong>Normal/</strong>, <strong>Anormal/</strong>, and <strong>Belirsiz/</strong> folders for results.
+      </div>
+    </div>
+
+    <!-- Filename overlay -->
+    <div class="video-overlay" id="videoOverlay"></div>
+  </div>
+
+  <!-- ── Controls ───────────────────────────────────────────────── -->
+  <div class="controls-panel" id="controlsPanel">
+
+    <!-- Primary: Normal / Anomaly -->
+    <div class="primary-buttons" id="primaryButtons">
+      <button class="btn-primary btn-normal" id="btnNormal" onclick="classifyNormal()">
+        <span class="btn-icon">✅</span>
+        <span class="btn-meta">
+          <span class="btn-label">Normal</span>
+          <span class="btn-shortcut">← Left Arrow</span>
+        </span>
+      </button>
+
+      <button class="btn-primary btn-anomaly" id="btnAnomaly" onclick="classifyAnomaly()">
+        <span class="btn-icon">⚠️</span>
+        <span class="btn-meta">
+          <span class="btn-label">Anomaly</span>
+          <span class="btn-shortcut">→ Right Arrow</span>
+        </span>
+      </button>
+
+      <button class="btn-primary btn-skip" id="btnSkip" onclick="classifySkip()">
+        <span class="btn-icon">🤔</span>
+        <span class="btn-meta">
+          <span class="btn-label">Skip / Belirsiz</span>
+          <span class="btn-shortcut">↓ Down Arrow</span>
+        </span>
+      </button>
+    </div>
+
+  </div>
+
+  <!-- ── Stats Bar ──────────────────────────────────────────────── -->
+  <div class="stats-bar">
+    <div class="stat-card">
+      <span class="stat-label">Remaining</span>
+      <span class="stat-value blue" id="statRemaining">—</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-label">Normal</span>
+      <span class="stat-value green" id="statNormal">—</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-label">Anomalies</span>
+      <span class="stat-value red" id="statAnomaly">—</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-label">Skipped</span>
+      <span class="stat-value amber" id="statSkipped">—</span>
+    </div>
+  </div>
+
+  <!-- ── Keyboard Shortcuts Bar ─────────────────────────────────── -->
+  <div class="shortcuts-bar">
+    <span class="shortcuts-label">Shortcuts</span>
+    <div class="shortcut-item"><kbd>←</kbd><span class="shortcut-desc">Normal</span></div>
+    <div class="shortcut-item"><kbd>→</kbd><span class="shortcut-desc">Anomaly</span></div>
+    <div class="shortcut-item"><kbd>↓</kbd><span class="shortcut-desc">Skip</span></div>
+    <div class="shortcut-item"><kbd>Space</kbd><span class="shortcut-desc">Play / Pause</span></div>
+  </div>
+
+</div>
+
+<!-- Toast -->
+<div id="toast" role="alert" aria-live="assertive">
+  <span class="toast-icon" id="toastIcon"></span>
+  <span id="toastMsg"></span>
+</div>
+
+<!-- ================================================================
+     JavaScript — Application Logic
+================================================================ -->
+<script>
+"use strict";
+
+// ──────────────────────────────────────────────
+// State
+// ──────────────────────────────────────────────
+let currentVideoId   = null;   // e.g. "Tuyer-3/clip042.mp4"
+let totalInitial     = 0;      // total video count at page load
+let annotatedCount   = 0;      // how many we've processed this session
+let isBusy           = false;  // lock to prevent double-clicks
+
+// ──────────────────────────────────────────────
+// DOM References
+// ──────────────────────────────────────────────
+const videoPlayer     = document.getElementById('videoPlayer');
+const videoCard       = document.getElementById('videoCard');
+const videoOverlay    = document.getElementById('videoOverlay');
+const emptyState      = document.getElementById('emptyState');
+const primaryButtons  = document.getElementById('primaryButtons');
+const spinnerOverlay  = document.getElementById('spinnerOverlay');
+const cameraLabel     = document.getElementById('cameraLabel');
+const progressFill    = document.getElementById('progressFill');
+const progressCount   = document.getElementById('progressCount');
+const statRemaining   = document.getElementById('statRemaining');
+const statNormal      = document.getElementById('statNormal');
+const statAnomaly     = document.getElementById('statAnomaly');
+const statSkipped     = document.getElementById('statSkipped');
+
+// ──────────────────────────────────────────────
+// Toast helper
+// ──────────────────────────────────────────────
+let toastTimer = null;
+
+function showToast(msg, type = 'success', duration = 2400) {
+  const toast   = document.getElementById('toast');
+  const toastMsg  = document.getElementById('toastMsg');
+  const toastIcon = document.getElementById('toastIcon');
+
+  const icons = { success: '✅', error: '❌', info: 'ℹ️' };
+  toastIcon.textContent = icons[type] ?? 'ℹ️';
+  toastMsg.textContent  = msg;
+
+  toast.className = `visible ${type}`;
+
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { toast.className = type; }, duration);
+}
+
+// ──────────────────────────────────────────────
+// Spinner
+// ──────────────────────────────────────────────
+function setLoading(state) {
+  spinnerOverlay.classList.toggle('visible', state);
+}
+
+// ──────────────────────────────────────────────
+// Load a video by its ID
+// ──────────────────────────────────────────────
+function loadVideo(videoId) {
+  currentVideoId = videoId;
+
+  if (!videoId) {
+    // Nothing left
+    videoPlayer.style.display  = 'none';
+    videoOverlay.style.display = 'none';
+    emptyState.classList.add('visible');
+    primaryButtons.classList.add('hidden');
+    cameraLabel.textContent = 'All done!';
+    videoCard.className = 'video-card';
+    return;
+  }
+
+  // Extract camera folder name (first path segment)
+  const parts  = videoId.split('/');
+  const folder = parts.length > 1 ? parts[parts.length - 2] : '—';
+  const file   = parts[parts.length - 1];
+  cameraLabel.textContent = `Current Camera: ${folder}`;
+  videoOverlay.textContent = `📂 ${videoId}`;
+
+  // Reset state
+  videoCard.className  = 'video-card';
+  primaryButtons.classList.remove('hidden');
+
+  // Load new source
+  setLoading(true);
+  videoPlayer.style.display  = '';
+  videoOverlay.style.display = '';
+  emptyState.classList.remove('visible');
+
+  // Add cache-buster to force reload if same filename appears twice
+  videoPlayer.src = `/api/video/${encodeURIComponent(videoId).replace(/%2F/g, '/')}?t=${Date.now()}`;
+  videoPlayer.load();
+  videoPlayer.play().catch(() => {/* autoplay policy — user will interact */});
+}
+
+// ──────────────────────────────────────────────
+// API: Classify
+// ──────────────────────────────────────────────
+async function sendClassify(label) {
+  if (isBusy || !currentVideoId) return;
+  isBusy = true;
+  setLoading(true);
+
+  const body = { video_id: currentVideoId, label };
+
+  try {
+    const res  = await fetch('/api/classify', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify(body),
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      showToast(data.error || 'Server error', 'error');
+      return;
+    }
+
+    annotatedCount++;
+    updateProgress(data.remaining);
+
+    const cameraFolder = currentVideoId.split('/')[0];
+    const destMap  = { normal: 'Normal', anomaly: 'Anormal', skip: 'Belirsiz' };
+    const toastMap = { normal: 'success', anomaly: 'error', skip: 'info' };
+    showToast(`Moved to ${destMap[label]}/${cameraFolder}/`, toastMap[label]);
+
+    // Load next
+    loadVideo(data.next_video);
+    fetchStats();
+
+  } catch (err) {
+    showToast('Network error — is the server running?', 'error');
+    console.error(err);
+  } finally {
+    isBusy = false;
+    setLoading(false);
+  }
+}
+
+function classifyNormal() {
+  videoCard.className = 'video-card state-normal';
+  sendClassify('normal');
+}
+
+function classifyAnomaly() {
+  videoCard.className = 'video-card state-anomaly';
+  sendClassify('anomaly');
+}
+
+function classifySkip() {
+  videoCard.className = 'video-card state-skip';
+  sendClassify('skip');
+}
+
+// ──────────────────────────────────────────────
+// Progress helpers
+// ──────────────────────────────────────────────
+function updateProgress(remaining) {
+  const total    = Math.max(totalInitial, remaining + annotatedCount);
+  const done     = total - remaining;
+  const pct      = total > 0 ? Math.round((done / total) * 100) : 100;
+
+  progressFill.style.width = `${pct}%`;
+  progressCount.textContent = `${done} / ${total} (${pct}%)`;
+  statRemaining.textContent = remaining;
+}
+
+// ──────────────────────────────────────────────
+// API: Stats
+// ──────────────────────────────────────────────
+async function fetchStats() {
+  try {
+    const res  = await fetch('/api/stats');
+    const data = await res.json();
+    statNormal.textContent  = data.normal  ?? '—';
+    statAnomaly.textContent = data.anormal_total ?? '—';
+    statSkipped.textContent = data.skipped ?? '—';
+    updateProgress(data.remaining);
+  } catch { /* silently ignore */ }
+}
+
+// ──────────────────────────────────────────────
+// Boot: load video list
+// ──────────────────────────────────────────────
+async function init() {
+  try {
+    const res  = await fetch('/api/videos');
+    const data = await res.json();
+
+    totalInitial  = data.total;
+
+    const first = data.videos[0] ?? null;
+    updateProgress(data.total);
+    loadVideo(first);
+    fetchStats();
+
+  } catch (err) {
+    showToast('Failed to connect to server', 'error', 8000);
+    console.error(err);
+  }
+}
+
+// ──────────────────────────────────────────────
+// Video player events
+// ──────────────────────────────────────────────
+videoPlayer.addEventListener('canplay', () => setLoading(false));
+videoPlayer.addEventListener('error',   () => {
+  setLoading(false);
+  showToast('Could not load video', 'error');
+});
+
+// ──────────────────────────────────────────────
+// Keyboard shortcuts
+// ──────────────────────────────────────────────
+document.addEventListener('keydown', (e) => {
+  // Ignore if focus is inside a text input
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+  switch (e.key) {
+    case 'ArrowLeft':
+      e.preventDefault();
+      classifyNormal();
+      break;
+
+    case 'ArrowRight':
+      e.preventDefault();
+      classifyAnomaly();
+      break;
+
+    case 'ArrowDown':
+      e.preventDefault();
+      classifySkip();
+      break;
+
+    case ' ':
+      e.preventDefault();
+      if (videoPlayer.paused) videoPlayer.play();
+      else videoPlayer.pause();
+      break;
+  }
+});
+
+// ──────────────────────────────────────────────
+// Start
+// ──────────────────────────────────────────────
+init();
+</script>
+</body>
+</html>
